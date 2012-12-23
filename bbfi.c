@@ -1,38 +1,102 @@
 #include "bbfi.h"
 
 int main(int argc, char **argv) {
-	return interpret(); 
+	Heap** heap = (Heap**) malloc(sizeof(Heap*));
+	*heap = 0;
+	return interpret(heap,0); 
 }
 
-int interpret() {
+int interpret(Heap** heap,int isLoop) {
 	char c;
-	Heap* heap = createHeap();
+	InstCache *cache;
+	if(*heap==0) *heap = createHeap();
+	if(isLoop) cache = createInstCache();
 	while((c=fgetc(stdin))!=EOF) {
 		switch(c) {
 			case '>':
-				heap = movePtrToNext(heap);
-				break;
 			case '<':
-				heap = movePtrToPrev(heap);
-				if(heap==0) return 13;
-				break;
 			case '+':
-				heap = addPtr(heap);
-				break;
 			case '-':
-				heap = subPtr(heap);
-				break;
 			case '.':
-				heap = printPtr(heap);
-				break;
 			case ',':
-				heap = inputPtr(heap);
+				if(execute(heap, &c, 1)) return 13;
+				if(isLoop) {
+					cache = addInst(c, cache);
+					if(c==',') addInst(*((*heap)->ptr), cache);
+				}
 				break;
 			case '[':
+				if(interpret(heap, 1)) return 13;
+				break;
+			case ']':
+				while((*(*heap)->ptr)!=0) {
+					if(execute(heap, cache->inst, strlen(cache->inst))) return 13;
+				}
+				return 0;
 				break;
 		}
 	}
 	return 0;
+}
+
+int execute(Heap** heap, char* str, int len) {
+	while(len--) {
+		switch(*str) {
+			case '>':
+				*heap = movePtrToNext(*heap);
+				break;
+			case '<':
+				*heap = movePtrToPrev(*heap);
+				if(*heap==0) return 13;
+				break;
+			case '+':
+				*heap = addPtr(*heap);
+				break;
+			case '-':
+				*heap = subPtr(*heap);
+				break;
+			case '.':
+				*heap = printPtr(*heap);
+				break;
+			case ',':
+				*heap = inputPtr(*heap);
+				break;
+			default:
+				*((*heap)->ptr) = *str;
+		}
+		++str;
+	}
+	return 0;
+}
+
+InstCache* createInstCache() {
+	InstCache *cache = (InstCache*) malloc(sizeof(InstCache));
+	memset(cache, 0, sizeof(InstCache));
+	cache->inst = (char*) malloc(sizeof(char) * CACHE_MAX);
+	cache->cache_size = CACHE_MAX;
+	memset(cache->inst, 0, cache->cache_size);
+	return cache;
+}
+InstCache* expandInstCache(InstCache *cache) {
+	InstCache *expanded_cache = (InstCache*) malloc(sizeof(InstCache));
+	memset(expanded_cache, 0, sizeof(InstCache));
+	expanded_cache->inst = (char*) malloc(sizeof(char)* (cache->cache_size*2));
+	expanded_cache->cache_size = cache->cache_size*2;
+	memset(cache->inst, 0, cache->cache_size);
+
+	strncpy(expanded_cache->inst, cache->inst, cache->cache_size);
+
+	free(cache->inst);
+	free(cache);
+	return expanded_cache;	
+}
+
+InstCache* addInst(char c, InstCache *cache) {
+	if(strlen(cache->inst)==cache->cache_size-1) {
+		cache = expandInstCache(cache);
+	}
+	cache->inst[strlen(cache->inst)] = c;
+	return cache;
 }
 
 Heap* createHeap() {
