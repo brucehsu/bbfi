@@ -3,14 +3,15 @@
 int main(int argc, char **argv) {
 	Heap** heap = (Heap**) malloc(sizeof(Heap*));
 	*heap = 0;
-	return interpret(heap,0); 
+	InstCache** cache = (InstCache**) malloc(sizeof(InstCache*));
+	*cache = 0;
+	return interpret(heap,cache,-1); 
 }
 
-int interpret(Heap** heap,int isLoop) {
+int interpret(Heap** heap, InstCache** cache, int loopBegin) {
 	char c;
-	InstCache *cache;
 	if(*heap==0) *heap = createHeap();
-	if(isLoop) cache = createInstCache();
+	if(*cache==0) *cache = createInstCache();
 	while((c=fgetc(stdin))!=EOF) {
 		switch(c) {
 			case '>':
@@ -20,18 +21,18 @@ int interpret(Heap** heap,int isLoop) {
 			case '.':
 			case ',':
 				if(execute(heap, &c, 1)) return 13;
-				if(isLoop) {
-					cache = addInst(c, cache);
-					if(c==',') addInst(*((*heap)->ptr), cache);
-				}
+				*cache = addInst(c, *cache);
+				if(c==',') addInst(*((*heap)->ptr), *cache);
 				break;
 			case '[':
-				if(interpret(heap, 1)) return 13;
+				*cache = addInst(c, *cache);
+
+				if(loopBegin==-1) loopBegin = strlen((*cache)->inst)-1;
+				if(interpret(heap,cache,strlen((*cache)->inst)-1)) return 13;
 				break;
 			case ']':
-				while((*(*heap)->ptr)!=0) {
-					if(execute(heap, cache->inst, strlen(cache->inst))) return 13;
-				}
+				*cache = addInst(c, *cache);
+				execute(heap, (*cache)->inst+loopBegin, strlen((*cache)->inst)-loopBegin);
 				return 0;
 				break;
 		}
@@ -39,15 +40,17 @@ int interpret(Heap** heap,int isLoop) {
 	return 0;
 }
 
-int execute(Heap** heap, char* str, int len) {
-	while(len--) {
-		switch(*str) {
+char* execute(Heap** heap, char* str, int len) {
+	char* sptr = str;
+	int slen = len;
+	while(slen--) {
+		switch(*sptr) {
 			case '>':
 				*heap = movePtrToNext(*heap);
 				break;
 			case '<':
 				*heap = movePtrToPrev(*heap);
-				if(*heap==0) return 13;
+				if(*heap==0) return 0;
 				break;
 			case '+':
 				*heap = addPtr(*heap);
@@ -59,12 +62,25 @@ int execute(Heap** heap, char* str, int len) {
 				*heap = printPtr(*heap);
 				break;
 			case ',':
-				*heap = inputPtr(*heap);
+				if(slen==0) *heap = inputPtr(*heap);
+				break;
+			case '[':
+				sptr = execute(heap, sptr+1, strlen(sptr));
+				slen = strlen(sptr);
+				break;
+			case ']':
+				if(*((*heap)->ptr)!=0) {
+					sptr = str;
+					slen = len;
+					continue;
+				} else {
+					return sptr;
+				}
 				break;
 			default:
-				*((*heap)->ptr) = *str;
+				*((*heap)->ptr) = *sptr;
 		}
-		++str;
+		++sptr;
 	}
 	return 0;
 }

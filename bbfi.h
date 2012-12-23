@@ -17,8 +17,8 @@ typedef struct  {
 } InstCache;
 
 int main(int argc, char **argv);
-int interpret(Heap** heap, int isLoop);
-int execute(Heap **heap, char *str, int len);
+int interpret(Heap** heap, InstCache** cache, int loopBegin);
+char* execute(Heap **heap, char *str, int len);
 
 InstCache* createInstCache();
 InstCache* expandInstCache(InstCache *cache);
