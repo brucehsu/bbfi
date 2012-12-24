@@ -5,15 +5,15 @@
 #include <string.h>
 
 typedef struct Heap{
-	char *ptr;
-	int currentIndex;
-	char obj[HEAP_MAX];
-	struct Heap *prev, *next;
+    char *ptr;
+    int currentIndex;
+    char obj[HEAP_MAX];
+    struct Heap *prev, *next;
 } Heap;
 
 typedef struct  {
-	char *inst;
-	int cache_size;
+    char *inst;
+    int cache_size;
 } InstCache;
 
 int main(int argc, char **argv);
