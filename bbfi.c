@@ -46,17 +46,17 @@ char* execute(Heap** heap, char* str, int len) {
     while(slen--) {
         switch(*sptr) {
             case '>':
-                *heap = movePtrToNext(*heap);
+                *heap = movePtrToNext(*heap,1);
                 break;
             case '<':
-                *heap = movePtrToPrev(*heap);
+                *heap = movePtrToPrev(*heap,1);
                 if(*heap==0) return 0;
                 break;
             case '+':
-                *heap = addPtr(*heap);
+                *heap = addPtr(*heap,1);
                 break;
             case '-':
-                *heap = subPtr(*heap);
+                *heap = subPtr(*heap,1);
                 break;
             case '.':
                 *heap = printPtr(*heap);
@@ -129,38 +129,56 @@ Heap* expandHeap(Heap *currentHeap) {
     return heap;
 }
 
-Heap* movePtrToNext(Heap* heap) {
-    if(heap->currentIndex<HEAP_MAX-1) {
-        ++(heap->ptr);
-        ++(heap->currentIndex);
-    } else {
-        if(heap->next) {
-            return heap->next;
+Heap* movePtrToNext(Heap* heap, int offset) {
+    if(offset==0) return heap;
+    while(offset) {
+        if((heap->currentIndex + offset) < HEAP_MAX) {
+            heap->currentIndex += offset;
+            heap->ptr += offset;
+            offset = 0;
         } else {
-            heap = expandHeap(heap);
+            heap->ptr += (HEAP_MAX - heap->currentIndex - 1);
+            offset -= (HEAP_MAX - heap->currentIndex - 1);
+            if(heap->next) {
+                heap = heap->next;
+            } else {
+                heap = expandHeap(heap);
+            }
         }
     }
     return heap;
 }
 
-Heap* movePtrToPrev(Heap* heap) {
-    if(heap->currentIndex==0) {
-        if(heap->prev==0) return 0;
-        heap = heap->prev;
-    } else {
-        --(heap->ptr);
-        --(heap->currentIndex);
+Heap* movePtrToPrev(Heap* heap, int offset) {
+    if(offset==0) return heap;
+    while(offset) {
+        if((heap->currentIndex - offset) >= 0) {
+            heap->currentIndex -= offset;
+            heap->ptr -= offset;
+            offset = 0;
+        } else {
+            offset -= heap->currentIndex;
+            heap->ptr -= heap->currentIndex;
+            heap->currentIndex = 0;
+            if(heap->prev) {
+                heap = heap->prev;
+            } else {
+                return 0;
+            }
+        }
     }
     return heap;
 }
 
-Heap* addPtr(Heap* heap) {
-    ++(*(heap->ptr));
+Heap* addPtr(Heap* heap, int val) {
+    if(val==0) return heap;
+    (*(heap->ptr))+=val;
     return heap;
 }
 
-Heap* subPtr(Heap* heap) {
-    --(*(heap->ptr));
+Heap* subPtr(Heap* heap, int val) {
+    if(val==0) return heap;
+    (*(heap->ptr))-=val;
     return heap;    
 }
 

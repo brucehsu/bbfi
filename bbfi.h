@@ -27,9 +27,9 @@ InstCache* addInst(char c, InstCache *cache);
 Heap* createHeap();
 Heap* expandHeap(Heap* currentHeap);
 
-Heap* movePtrToNext(Heap* heap);
-Heap* movePtrToPrev(Heap* heap);
-Heap* addPtr(Heap* heap);
-Heap* subPtr(Heap* heap);
+Heap* movePtrToNext(Heap* heap, int offset);
+Heap* movePtrToPrev(Heap* heap, int offset);
+Heap* addPtr(Heap* heap, int val);
+Heap* subPtr(Heap* heap, int val);
 Heap* printPtr(Heap* heap);
 Heap* inputPtr(Heap* heap);
