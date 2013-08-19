@@ -15,6 +15,7 @@ const (
 	LOOP
 	END
 	SET
+	MOV
 )
 
 const (
@@ -63,6 +64,34 @@ func appendNewInstruction(head *Instruction, inst_type int, inst_parameter int, 
 			inst_pair.inst_pair = head.next // Since `]` will always appear in the end of instruction list
 		}
 		return head.next
+	}
+}
+
+func movePtrByOffset(buf *Buffer, offset int) *Buffer {
+	if offset >= 0 {
+		if buf.bidx+offset >= BUF_MAX-1 {
+			diff := BUF_MAX - 1 - buf.bidx
+			buf.bidx = BUF_MAX - 1
+			new_buf := appendNewBuffer(buf)
+			new_buf.bidx = offset - diff
+			return new_buf
+		} else {
+			buf.bidx += offset
+			return buf
+		}
+	} else {
+		if buf.bidx-offset < 0 {
+			if buf.prev == nil {
+				return nil
+			}
+			diff := offset - buf.bidx
+			buf = buf.prev
+			buf.bidx -= diff
+			return buf
+		} else {
+			buf.bidx -= offset
+			return buf
+		}
 	}
 }
 
@@ -134,6 +163,8 @@ func execute(inst *Instruction, buf *Buffer) *Instruction {
 			return inst
 		case SET:
 			buf.buf[buf.bidx] = inst.inst_parameter
+		case MOV:
+			buf = movePtrByOffset(buf, inst.inst_parameter)
 		}
 		inst = inst.next
 	}
@@ -170,6 +201,43 @@ func optimizeConsecutiveArithmetic(inst *Instruction) {
 				start.inst_parameter = sum
 
 				sum = 0
+				start.next = inst
+			}
+			start = nil
+		}
+		inst = inst.next
+	}
+
+	if start != nil {
+		start.next = nil
+	}
+}
+
+func optimizeConsecutiveMovement(inst *Instruction) {
+	offset := 0
+	start := (*Instruction)(nil)
+	for inst != nil {
+		if inst.inst_type == PREV || inst.inst_type == NEXT {
+			if start == nil {
+				if inst.inst_type == NEXT {
+					offset = 1
+				} else {
+					offset = -1
+				}
+				start = inst
+			} else {
+				if inst.inst_type == NEXT {
+					offset += 1
+				} else {
+					offset -= 1
+				}
+			}
+		} else {
+			if start != nil {
+				start.inst_type = MOV
+				start.inst_parameter = offset
+
+				offset = 0
 				start.next = inst
 			}
 			start = nil
