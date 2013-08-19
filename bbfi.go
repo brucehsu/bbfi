@@ -16,6 +16,7 @@ const (
 	END
 	SET
 	MOV
+	MOV_NONZERO
 )
 
 const (
@@ -95,6 +96,34 @@ func movePtrByOffset(buf *Buffer, offset int) *Buffer {
 	}
 }
 
+func movePtrToNonzero(buf *Buffer, gap int) *Buffer {
+	for i := buf.bidx; ; i += gap {
+		if i > BUF_MAX-1 {
+			buf.bidx = BUF_MAX - 1
+			diff := i - BUF_MAX - 1
+			if buf.next == nil {
+				new_buf := appendNewBuffer(buf)
+				new_buf.bidx = diff
+				buf = new_buf
+			} else {
+				buf = buf.next
+				buf.bidx = diff
+			}
+			i = diff
+		} else if i < 0 {
+			buf.bidx = 0
+			buf = buf.prev
+			buf.bidx += i
+			i = buf.bidx
+		}
+
+		if buf.buf[i] == 0 {
+			buf.bidx = i
+			return buf
+		}
+	}
+}
+
 func movePtrToPrev(buf *Buffer) *Buffer {
 	if buf.bidx == 0 {
 		if buf.prev == nil {
@@ -165,6 +194,8 @@ func execute(inst *Instruction, buf *Buffer) *Instruction {
 			buf.buf[buf.bidx] = inst.inst_parameter
 		case MOV:
 			buf = movePtrByOffset(buf, inst.inst_parameter)
+		case MOV_NONZERO:
+			buf = movePtrToNonzero(buf, inst.inst_parameter)
 		}
 		inst = inst.next
 	}
@@ -276,11 +307,42 @@ func optimizeSubstractionToZero(inst *Instruction) {
 	}
 }
 
+func optimizeMovementLoop(inst *Instruction) {
+	for inst != nil {
+		if inst.inst_type == LOOP {
+			inner_inst := inst.next
+			if inner_inst.next.inst_type == END {
+				is_movement := false
+				switch inner_inst.inst_type {
+				case NEXT:
+					is_movement = true
+					inst.inst_type = MOV_NONZERO
+					inst.inst_parameter = 1
+				case PREV:
+					is_movement = true
+					inst.inst_type = MOV_NONZERO
+					inst.inst_parameter = -1
+				case MOV:
+					is_movement = true
+					inst.inst_type = MOV_NONZERO
+					inst.inst_parameter = inner_inst.inst_parameter
+				}
+				if is_movement {
+					inst.next = inst.inst_pair.next
+					inst.inst_pair = nil
+				}
+			}
+		}
+		inst = inst.next
+	}
+}
+
 func optimizeInstructions(inst *Instruction) *Instruction {
 	head := inst
 	optimizeConsecutiveArithmetic(inst)
 	optimizeConsecutiveMovement(inst)
 	optimizeSubstractionToZero(inst)
+	optimizeMovementLoop(inst)
 	return head
 }
 
