@@ -203,6 +203,7 @@ func execute(inst *Instruction, buf *Buffer) *Instruction {
 }
 
 func optimizeConsecutiveArithmetic(inst *Instruction) {
+	// Transform consecutive arithmetic operation, ex: ++++ to PLUS 4
 	sum := 0
 	start := (*Instruction)(nil)
 	for inst != nil {
@@ -246,6 +247,7 @@ func optimizeConsecutiveArithmetic(inst *Instruction) {
 }
 
 func optimizeConsecutiveMovement(inst *Instruction) {
+	// Transform consecutive pointer movement, ex: <<<< to MOV -4
 	offset := 0
 	start := (*Instruction)(nil)
 	for inst != nil {
@@ -284,6 +286,7 @@ func optimizeConsecutiveMovement(inst *Instruction) {
 }
 
 func optimizeSubstractionToZero(inst *Instruction) {
+	// For pattern: [-]
 	for inst != nil {
 		if inst.inst_type == LOOP {
 			if inst.next != nil && inst.next.next != nil {
@@ -308,6 +311,7 @@ func optimizeSubstractionToZero(inst *Instruction) {
 }
 
 func optimizeMovementLoop(inst *Instruction) {
+	// For pattern: [>], [<], [>>>]
 	for inst != nil {
 		if inst.inst_type == LOOP {
 			inner_inst := inst.next
