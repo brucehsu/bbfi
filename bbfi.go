@@ -14,6 +14,7 @@ const (
 	READ
 	LOOP
 	END
+	SET
 )
 
 const (
@@ -131,6 +132,8 @@ func execute(inst *Instruction, buf *Buffer) *Instruction {
 			inst = next_inst
 		case END:
 			return inst
+		case SET:
+			buf.buf[buf.bidx] = inst.inst_parameter
 		}
 		inst = inst.next
 	}
@@ -179,9 +182,34 @@ func optimizeConsecutiveArithmetic(inst *Instruction) {
 	}
 }
 
+func optimizeSubstractionToZero(inst *Instruction) {
+	for inst != nil {
+		if inst.inst_type == LOOP {
+			if inst.next != nil && inst.next.next != nil {
+				if inst.next.inst_type == MINUS && inst.next.next.inst_type == END {
+					new_inst := new(Instruction)
+					new_inst.prev = inst.prev
+					if inst.prev != nil {
+						inst.prev.next = new_inst
+					}
+					new_inst.next = inst.next.next.next
+					if inst.next.next.next != nil {
+						inst.next.next.next.prev = new_inst
+					}
+					new_inst.inst_type = SET
+					new_inst.inst_parameter = 0
+					inst = new_inst
+				}
+			}
+		}
+		inst = inst.next
+	}
+}
+
 func optimizeInstructions(inst *Instruction) *Instruction {
 	head := inst
 	optimizeConsecutiveArithmetic(inst)
+	optimizeSubstractionToZero(inst)
 	return head
 }
 
