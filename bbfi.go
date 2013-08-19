@@ -84,12 +84,12 @@ func movePtrByOffset(buf *Buffer, offset int) *Buffer {
 			if buf.prev == nil {
 				return nil
 			}
-			diff := offset - buf.bidx
+			diff := offset + buf.bidx
 			buf = buf.prev
-			buf.bidx -= diff
+			buf.bidx += diff
 			return buf
 		} else {
-			buf.bidx -= offset
+			buf.bidx += offset
 			return buf
 		}
 	}
@@ -202,6 +202,7 @@ func optimizeConsecutiveArithmetic(inst *Instruction) {
 
 				sum = 0
 				start.next = inst
+				inst.prev = start
 			}
 			start = nil
 		}
@@ -237,9 +238,10 @@ func optimizeConsecutiveMovement(inst *Instruction) {
 				start.inst_type = MOV
 				start.inst_parameter = offset
 
-				offset = 0
 				start.next = inst
+				inst.prev = start
 			}
+			offset = 0
 			start = nil
 		}
 		inst = inst.next
@@ -277,6 +279,7 @@ func optimizeSubstractionToZero(inst *Instruction) {
 func optimizeInstructions(inst *Instruction) *Instruction {
 	head := inst
 	optimizeConsecutiveArithmetic(inst)
+	optimizeConsecutiveMovement(inst)
 	optimizeSubstractionToZero(inst)
 	return head
 }
