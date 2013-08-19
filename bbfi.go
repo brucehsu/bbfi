@@ -191,7 +191,7 @@ func optimizeConsecutiveArithmetic(inst *Instruction) {
 				}
 			}
 		} else {
-			if start != nil {
+			if start != nil && start != inst.prev {
 				if sum > 0 {
 					start.inst_type = PLUS
 				} else if sum < 0 {
@@ -234,7 +234,7 @@ func optimizeConsecutiveMovement(inst *Instruction) {
 				}
 			}
 		} else {
-			if start != nil {
+			if start != nil && start != inst.prev {
 				start.inst_type = MOV
 				start.inst_parameter = offset
 
