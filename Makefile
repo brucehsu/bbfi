@@ -1,6 +1,5 @@
-CC=gcc
 all:
-	$(CC) -g -O2 -o bbfi bbfi.c
+	go build bbfi.go
 
 clean:
 	rm bbfi
