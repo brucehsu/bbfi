@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"container/list"
+	"fmt"
+)
 
 const (
 	PREV = iota + 13
@@ -27,6 +30,7 @@ type Buffer struct {
 type Instruction struct {
 	inst_type      int
 	inst_parameter int
+	inst_pair      *Instruction
 	next           *Instruction
 	prev           *Instruction
 }
@@ -40,8 +44,8 @@ func appendNewBuffer(head *Buffer) *Buffer {
 	return head.next
 }
 
-func appendNewInstruction(head *Instruction, inst_type int, inst_parameter int) *Instruction {
-	if head.inst_type == 0 {
+func appendNewInstruction(head *Instruction, inst_type int, inst_parameter int, inst_pair *Instruction) *Instruction {
+	if head.inst_type == 0 { // The very first instruction
 		head.inst_type = inst_type
 		head.inst_parameter = inst_parameter
 		return head
@@ -53,6 +57,10 @@ func appendNewInstruction(head *Instruction, inst_type int, inst_parameter int) 
 		head.next.prev = head
 		head.next.inst_type = inst_type
 		head.next.inst_parameter = inst_parameter
+		head.next.inst_pair = inst_pair
+		if inst_pair != nil {
+			inst_pair.inst_pair = head.next // Since `]` will always appear in the end of instruction list
+		}
 		return head.next
 	}
 }
@@ -116,11 +124,11 @@ func execute(inst *Instruction, buf *Buffer) *Instruction {
 		case READ:
 			readPtr(buf)
 		case LOOP:
-			var potential_inst *Instruction
+			next_inst := inst.inst_pair
 			for buf.buf[buf.bidx] != 0 {
-				potential_inst = execute(inst.next, buf)
+				execute(inst.next, buf)
 			}
-			inst = potential_inst
+			inst = next_inst
 		case END:
 			return inst
 		}
@@ -132,26 +140,30 @@ func execute(inst *Instruction, buf *Buffer) *Instruction {
 func main() {
 	inst := new(Instruction)
 	buf := new(Buffer)
+	stack := list.New()
 	var c int
 	i, _ := fmt.Scanf("%c", &c)
 	for i != 0 {
 		switch c {
 		case '>':
-			appendNewInstruction(inst, NEXT, 0)
+			appendNewInstruction(inst, NEXT, 0, nil)
 		case '<':
-			appendNewInstruction(inst, PREV, 0)
+			appendNewInstruction(inst, PREV, 0, nil)
 		case '+':
-			appendNewInstruction(inst, PLUS, 1)
+			appendNewInstruction(inst, PLUS, 1, nil)
 		case '-':
-			appendNewInstruction(inst, MINUS, 1)
+			appendNewInstruction(inst, MINUS, 1, nil)
 		case '.':
-			appendNewInstruction(inst, PRINT, 0)
+			appendNewInstruction(inst, PRINT, 0, nil)
 		case ',':
-			appendNewInstruction(inst, READ, 0)
+			appendNewInstruction(inst, READ, 0, nil)
 		case '[':
-			appendNewInstruction(inst, LOOP, 0)
+			begin := appendNewInstruction(inst, LOOP, 0, nil)
+			stack.PushBack(begin)
 		case ']':
-			appendNewInstruction(inst, END, 0)
+			begin := stack.Back().Value.(*Instruction)
+			appendNewInstruction(inst, END, 0, begin)
+			stack.Remove(stack.Back())
 		}
 		i, _ = fmt.Scanf("%c", &c)
 	}
