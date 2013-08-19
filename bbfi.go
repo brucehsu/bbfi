@@ -70,12 +70,18 @@ func appendNewInstruction(head *Instruction, inst_type int, inst_parameter int, 
 
 func movePtrByOffset(buf *Buffer, offset int) *Buffer {
 	if offset >= 0 {
-		if buf.bidx+offset >= BUF_MAX-1 {
+		if buf.bidx+offset > BUF_MAX-1 {
 			diff := BUF_MAX - 1 - buf.bidx
 			buf.bidx = BUF_MAX - 1
-			new_buf := appendNewBuffer(buf)
-			new_buf.bidx = offset - diff
-			return new_buf
+			if buf.next == nil {
+				new_buf := appendNewBuffer(buf)
+				new_buf.bidx = offset - diff
+				buf = new_buf
+			} else {
+				buf = buf.next
+				buf.bidx = offset - diff
+			}
+			return buf
 		} else {
 			buf.bidx += offset
 			return buf
