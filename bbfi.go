@@ -116,9 +116,9 @@ func execute(inst *Instruction, buf *Buffer) *Instruction {
 		case NEXT:
 			buf = movePtrToNext(buf)
 		case PLUS:
-			addPtr(buf, 1)
+			addPtr(buf, inst.inst_parameter)
 		case MINUS:
-			subPtr(buf, 1)
+			subPtr(buf, inst.inst_parameter)
 		case PRINT:
 			printPtr(buf)
 		case READ:
@@ -135,6 +135,54 @@ func execute(inst *Instruction, buf *Buffer) *Instruction {
 		inst = inst.next
 	}
 	return nil
+}
+
+func optimizeConsecutiveArithmetic(inst *Instruction) {
+	sum := 0
+	start := (*Instruction)(nil)
+	for inst != nil {
+		if inst.inst_type == PLUS || inst.inst_type == MINUS {
+			if start == nil {
+				if inst.inst_type == PLUS {
+					sum = 1
+				} else {
+					sum = -1
+				}
+				start = inst
+			} else {
+				if inst.inst_type == PLUS {
+					sum += 1
+				} else {
+					sum -= 1
+				}
+			}
+		} else {
+			if start != nil {
+				if sum > 0 {
+					start.inst_type = PLUS
+				} else if sum < 0 {
+					start.inst_type = MINUS
+					sum = -sum
+				}
+				start.inst_parameter = sum
+
+				sum = 0
+				start.next = inst
+			}
+			start = nil
+		}
+		inst = inst.next
+	}
+
+	if start != nil {
+		start.next = nil
+	}
+}
+
+func optimizeInstructions(inst *Instruction) *Instruction {
+	head := inst
+	optimizeConsecutiveArithmetic(inst)
+	return head
 }
 
 func main() {
@@ -167,5 +215,6 @@ func main() {
 		}
 		i, _ = fmt.Scanf("%c", &c)
 	}
+	inst = optimizeInstructions(inst)
 	execute(inst, buf)
 }
