@@ -17,6 +17,7 @@ const (
 	SET
 	MOV
 	MOV_NONZERO
+	NOP
 )
 
 const (
@@ -202,6 +203,8 @@ func execute(inst *Instruction, buf *Buffer) *Instruction {
 			buf = movePtrByOffset(buf, inst.inst_parameter)
 		case MOV_NONZERO:
 			buf = movePtrToNonzero(buf, inst.inst_parameter)
+		case NOP:
+			break
 		}
 		inst = inst.next
 	}
@@ -303,8 +306,8 @@ func optimizeSubstractionToZero(inst *Instruction) {
 						inst.prev.next = new_inst
 					}
 					new_inst.next = inst.next.next.next
-					if inst.next.next.next != nil {
-						inst.next.next.next.prev = new_inst
+					if new_inst.next != nil {
+						new_inst.next.prev = new_inst
 					}
 					new_inst.inst_type = SET
 					new_inst.inst_parameter = 0
@@ -339,6 +342,9 @@ func optimizeMovementLoop(inst *Instruction) {
 				}
 				if is_movement {
 					inst.next = inst.inst_pair.next
+					if inst.next != nil {
+						inst.next.prev = inst
+					}
 					inst.inst_pair = nil
 				}
 			}
@@ -355,10 +361,76 @@ func optimizeAssignment(inst *Instruction) {
 				if inst.next.inst_type == PLUS {
 					inst.inst_parameter = inst.next.inst_parameter
 					inst.next = inst.next.next
+					if inst.next != nil {
+						inst.next.prev = inst
+					}
 				} else if inst.inst_type == MINUS {
 					inst.inst_parameter = 0 - inst.next.inst_parameter
 					inst.next = inst.next.next
 				}
+			}
+		}
+		inst = inst.next
+	}
+}
+
+func optimizeSimpleLoopMultiplication(inst *Instruction) {
+	// For pattern: ++++++[->+>++++<<]
+	for inst != nil {
+		if inst.inst_type == LOOP {
+			// Determine if this loop represents the pattern
+			if inst.inst_parameter == 1 || inst.prev == nil {
+				// Has subloops
+				inst = inst.next
+				continue
+			}
+			if inst.prev != nil && inst.prev.inst_type != PLUS && inst.prev.inst_type != SET {
+				inst = inst.next
+				continue
+			}
+			loop_inst := inst.next
+			pattern_match := true
+			offset := 0
+			for loop_inst != inst.inst_pair {
+				switch loop_inst.inst_type {
+				case NEXT:
+					offset += 1
+				case PREV:
+					offset -= 1
+				case MOV:
+					offset += loop_inst.inst_parameter
+				case READ:
+					pattern_match = false
+				}
+				loop_inst = loop_inst.next
+			}
+			if offset != 0 {
+				pattern_match = false
+			}
+			if pattern_match {
+				mul_factor := inst.prev.inst_parameter
+				loop_inst = inst.next
+				for loop_inst != inst.inst_pair {
+					if loop_inst.inst_type == PLUS {
+						loop_inst.inst_parameter *= mul_factor
+					} else if loop_inst.inst_type == MINUS && loop_inst.inst_parameter == 1 {
+						// Check if it's substraction to condition index
+						if loop_inst.prev.inst_type == LOOP || loop_inst.next.inst_type == END {
+							loop_inst.inst_type = NOP
+						}
+					} else if loop_inst.inst_type == MINUS {
+						loop_inst.inst_parameter *= mul_factor
+					}
+					loop_inst = loop_inst.next
+				}
+				inst.prev.inst_type = NOP
+				inst.prev.inst_parameter = 0
+				inst.prev.next = inst.next
+				inst.next.prev = inst.prev
+				loop_inst.prev.next = loop_inst.next
+				inst = loop_inst
+			} else {
+				inst = inst.inst_pair
 			}
 		}
 		inst = inst.next
@@ -372,6 +444,7 @@ func optimizeInstructions(inst *Instruction) *Instruction {
 	optimizeSubstractionToZero(inst)
 	optimizeMovementLoop(inst)
 	optimizeAssignment(inst)
+	optimizeSimpleLoopMultiplication(inst)
 	return head
 }
 
@@ -402,6 +475,9 @@ func main() {
 			begin := stack.Back().Value.(*Instruction)
 			appendNewInstruction(inst, END, 0, begin)
 			stack.Remove(stack.Back())
+			for e := stack.Front(); e != nil; e = e.Next() {
+				e.Value.(*Instruction).inst_parameter = 1
+			}
 		}
 		i, _ = fmt.Scanf("%c", &c)
 	}
