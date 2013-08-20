@@ -347,12 +347,31 @@ func optimizeMovementLoop(inst *Instruction) {
 	}
 }
 
+func optimizeAssignment(inst *Instruction) {
+	// For pattern: [-]++++++, considered as variable assignment
+	for inst != nil {
+		if inst.inst_type == SET {
+			if inst.next != nil {
+				if inst.next.inst_type == PLUS {
+					inst.inst_parameter = inst.next.inst_parameter
+					inst.next = inst.next.next
+				} else if inst.inst_type == MINUS {
+					inst.inst_parameter = 0 - inst.next.inst_parameter
+					inst.next = inst.next.next
+				}
+			}
+		}
+		inst = inst.next
+	}
+}
+
 func optimizeInstructions(inst *Instruction) *Instruction {
 	head := inst
 	optimizeConsecutiveArithmetic(inst)
 	optimizeConsecutiveMovement(inst)
 	optimizeSubstractionToZero(inst)
 	optimizeMovementLoop(inst)
+	optimizeAssignment(inst)
 	return head
 }
 
